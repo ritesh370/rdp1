@@ -1,4 +1,4 @@
-```yaml
+
 name: Chrome Remote Desktop
 
 on:
@@ -94,4 +94,3 @@ jobs:
             ~/.mozilla
             ~/.cache
           key: persistent-desktop-cache
-```
