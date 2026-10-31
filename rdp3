@@ -1,0 +1,97 @@
+```yaml
+name: Chrome Remote Desktop
+
+on:
+  workflow_dispatch:
+
+jobs:
+  crd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore Persistent Files
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/Desktop
+            ~/Downloads
+            ~/Documents
+            ~/Pictures
+            ~/Videos
+            ~/Music
+            ~/.config
+            ~/.local/share
+            ~/.mozilla
+            ~/.cache
+          key: persistent-desktop-cache
+
+      - name: Install Chrome Remote Desktop
+        run: |
+          sudo apt update
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+            xfce4 xfce4-goodies dbus-x11 wget curl
+
+          wget -q https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+          sudo apt install -y ./chrome-remote-desktop_current_amd64.deb
+
+      - name: Set Password
+        run: |
+          echo "runner:123456" | sudo chpasswd
+
+      - name: Setup XFCE Session
+        run: |
+          echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" \
+            | sudo tee /etc/chrome-remote-desktop-session
+
+          sudo usermod -aG chrome-remote-desktop runner || true
+
+      - name: Clean Old Config
+        run: |
+          rm -rf ~/.config/chrome-remote-desktop
+          mkdir -p ~/.config/chrome-remote-desktop
+
+      - name: Start Chrome Remote Desktop
+        env:
+          CRD_CODE: ${{ secrets.CRD_CODE }}
+        run: |
+          if [ -z "$CRD_CODE" ]; then
+            echo "CRD_CODE secret missing"
+            exit 1
+          fi
+
+          export DISPLAY=
+          /opt/google/chrome-remote-desktop/start-host \
+            --code="$CRD_CODE" \
+            --redirect-url="https://remotedesktop.google.com/_/oauthredirect" \
+            --name="$(hostname)" \
+            --pin="123456"
+
+      - name: Show JSON
+        if: always()
+        run: |
+          ls -la ~/.config/chrome-remote-desktop || true
+
+      - name: Keep Alive
+        run: sleep 21000
+
+      - name: Save Persistent Files
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/Desktop
+            ~/Downloads
+            ~/Documents
+            ~/Pictures
+            ~/Videos
+            ~/Music
+            ~/.config
+            ~/.local/share
+            ~/.mozilla
+            ~/.cache
+          key: persistent-desktop-cache
+```
